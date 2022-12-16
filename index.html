@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>413e5038703e49a2af7eabd1d3cc6ae3</title>
+  <title>f10acb0e37554e3ea1c1e528dbeed6b6</title>
   <style>
     html {
       line-height: 1.5;
@@ -212,9 +212,1186 @@
   <![endif]-->
 </head>
 <body>
-<div class="cell code" id="Ba23XO1WlRZR">
-<div class="sourceCode" id="cb1"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">&quot;Hello world&quot;</span>)</span></code></pre></div>
+<div class="cell markdown" id="lbGs1jChwro_">
+<p>#Analysis of Data from Firefox Web Security Plugin Group: John Bridgers (Worked alone)</p>
+</div>
+<div class="cell markdown" id="-uVY_fZK5HkG">
+<p>The goal of this project is to collect and analyze data from a Firefox plugin relating to web security that I desgined with a group of students (Jiahua Liu, Uyen P. Nguyen) for a project in CMSC396H (Research seminar) (Since I am working on this project (CMSC320 final), I will only discuss my contributions, and this data analysis has been done by myself). The goal of the plugin is to use features from the <a href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/getSecurityInfo">Firefox getSecurityInfo API</a> to collect data on a page load by page load basis regarding security leaks that may take place <em>at the very beginning of a web connection</em>. These leaks may take place when the browser sends DNS requests, performs TLS handshakes, or looks up TLS certifiate information.</p>
+<p>All of the code for the plugin and the web scraper/crawler (which will be discussed in the next section) are on our github: <a href="https://github.com/john-db/cmsc396h_RG" class="uri">https://github.com/john-db/cmsc396h_RG</a>.</p>
+</div>
+<div class="cell markdown" id="mqTvqWcx4IF-">
+<p>##Data collection/curation + parsing (if necessary)</p>
+</div>
+<div class="cell markdown" id="RHeGyr6v7trb">
+<p>The first step in any data analysis project is of course to gather the data. In this case, we will be creating our own dataset, and the first step is to create the Firefox plugin.</p>
+<p>We don't need to discuss the entire plugin here, only the parts relevant for data collection. The goal of the plugin was to collect security info on a <em>page load by page load basis</em>. The getSecurityInfo api only returns information for individual http requests, of which a webpage may contain hundreds. So the challenge was to find a way to associate these web requests with web page loads. To do this, I looked at uBlockOrigin, an open source content blocking plugin, so see how they associate requests with pages. They use what they call a tabContextManager to keep track of what pages current tabs have loaded, and then associate requests in these tabs to these pages.</p>
+<p>So in our plugin, we used the <a href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webNavigation">webNavigation API</a> to keep track of which pages each tab had navigated to, and used the <a href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest">webRequest API</a> to associate requests to these pages.</p>
+<p>The end goal of this project is to create a plugin that can be distributed to users so that we can collect real browsing data, but for we haven't implemented abilities for the plugin to store data on a server yet, currently the data is stored in Firefox's local storage instead. The plugin can output this data to a .csv file.</p>
+</div>
+<div class="cell markdown" id="JZua4JSr-q6V">
+<p>Now, since the plugin cannot be distributed to users yet, in order to get data I would have to do it myself. But it would take far too long for me to manually visit enought websites to have an interesting dataset, so I created a web crawler/scraper that visits sites for me. This web crawler was created using the Selenium API for python. Since this was a key part of data collection I will go over the code, but it will all be commented out because it is python, and I don't want the ipynb to run it.</p>
+</div>
+<div class="cell markdown" id="Z3L_u6cL_0F6">
+<p>First we import the necessary packages, and read in data from a .csv obatained from <a href="https://majestic.com/reports/majestic-million" class="uri">https://majestic.com/reports/majestic-million</a> containing the million most popular websites, the csv file used is the first 1000 rows because the full file was too large.</p>
+</div>
+<div class="cell code" data-execution_count="325" id="6ShCGDj6_tJ6">
+<div class="sourceCode" id="cb1"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># from selenium import webdriver</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co"># from selenium.webdriver.common.by import By</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># from selenium.webdriver.firefox.options import Options</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># import pandas as pd</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># import time</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co"># import os</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co"># scraper_folder = os.path.dirname(__file__)</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># project_folder = os.path.dirname(scraper_folder)</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># sites = pd.read_csv(scraper_folder + &quot;/majestic_thousand.csv&quot;)</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co"># sites[&quot;Domain&quot;] = sites[&quot;Domain&quot;].astype(&quot;string&quot;)</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co"># websites = sites[&quot;Domain&quot;].apply(lambda x: &quot;https://&quot; + x)</span></span></code></pre></div>
+</div>
+<div class="cell markdown" id="TTVSsbYvAWdZ">
+<p>Then we configure the options for our Firefox webdriver. We set the dom.popup_maximum preference to 0 to prevent popups from interfering with our crawler.</p>
+</div>
+<div class="cell code" data-execution_count="326" id="O3xJ_cqr_6Ja">
+<div class="sourceCode" id="cb2"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># options=Options()</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co"># options.set_preference(&quot;dom.popup_maximum&quot;, 0)</span></span></code></pre></div>
+</div>
+<div class="cell markdown" id="RtNCg0CSAnaS">
+<p>Then we create our web driver and install the firefox plugin located in folder "v1" We set the set_page_load_timeout to 10 because without this, the driver would get stuck/hang on certain sites it tried to visit, for example if it tried to visit a hyperlink which was an email it would hang, so this timeout just ensures that if a get request takes more than 10 seconds, the driver will move on.</p>
+</div>
+<div class="cell code" data-execution_count="327" id="k1YuhPXoAoYk">
+<div class="sourceCode" id="cb3"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># driver = webdriver.Firefox(options=options)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># addon_path = project_folder + &quot;/v1&quot;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co"># driver.install_addon(path=addon_path, temporary=True)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co"># driver.set_page_load_timeout(10)</span></span></code></pre></div>
+</div>
+<div class="cell markdown" id="l3T5NtHnBFsj">
+<p>Now we get to the part which actually crawls the web. The outer for loop goes through the 200 most popular domains, and tries to visit them. The time.sleep call pauses program execution, which is very important, because the requests need time to complete, as our plugin can only call getSecurityInfo when the http headers have been received. After the time.sleep, the driver scrapes the current page for hyperlinks (by looking for a[@href] XPath). There are other ways to do this, for example, one could have first scraped all the domains for links using Beautiful Soup or Requests packages, but I favored this way because it took less pre-processing. Then for each of those hyperlinks, the driver tries to visit it, and after visiting all the hyperlinks, it proceeds to the next domain.</p>
+</div>
+<div class="cell code" data-execution_count="328" id="6kGmW2mNBFiK">
+<div class="sourceCode" id="cb4"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># i = 0</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co"># j = 0</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co"># for link in websites[0:200]:</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">#     i += 1</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co">#     print(&quot;outer link: &quot; + str(i))</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co">#     try:</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co">#         driver.get(link)</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co">#         j += 1</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co">#         print(&quot;get #&quot; + str(j) + &quot; was &quot; + link)</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="co">#         time.sleep(7)</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="co">#         elems = driver.find_elements(By.XPATH, &#39;//a[@href]&#39;)</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co">#         hrefs = []</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="co">#         for elem in elems:</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="co">#             hrefs.append(elem.get_attribute(&quot;href&quot;))</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="co">#         for my_link in hrefs[0:10]:</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="co">#             try:</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="co">#                 driver.get(my_link)</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="co">#                 j += 1</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="co">#                 print(&quot;get #&quot; + str(j) + &quot; was &quot; + my_link)</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a><span class="co">#                 time.sleep(7)</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="co">#             except Exception as e:</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="co">#                 print(&quot;error on &quot; +  my_link)</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a><span class="co">#     except Exception as e:</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="co">#         print(&quot;error on &quot; + link)</span></span></code></pre></div>
+</div>
+<div class="cell markdown" id="D7YXq3oDCSZr">
+<p>The plugin requires data to be manually exported csv from Firefox, so we must add a while True loop after the driver finishes so that the Firefox instance isn't garbage collected. This way Firefox will remain open after the program completes, so that we may extract the data.</p>
+</div>
+<div class="cell code" data-execution_count="329" id="5lwRMfUsCQC7">
+<div class="sourceCode" id="cb5"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># while True:</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">#     print(&quot;DONE&quot;)</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">#     time.sleep(30)</span></span></code></pre></div>
+</div>
+<div class="cell markdown" id="LaYHBSEaDqtL">
+<p>So that concludes our web crawler. The web crawler was run 9 times on my laptop (MacOS, Firefox 107.0.1, UMD IOT Wi-Fi connection) and 3 times on my PC (Windows 10, Firefox 107.0.1, UMD IOT Wired connection).</p>
+<p>We will now read in the data so it may be analyzed:</p>
+</div>
+<div class="cell markdown" id="SwDj3FQ9EsWy">
+<p>We will be using the pandas package for data manipulation</p>
+</div>
+<div class="cell code" data-execution_count="330" id="-pvqB-_NWkz8">
+<div class="sourceCode" id="cb6"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span></code></pre></div>
+</div>
+<div class="cell markdown" id="iBYaMtEDEv6p">
+<p>We will read in our 12 csv files, and combine them into one dataframe using pandas.concat</p>
+</div>
+<div class="cell code" data-execution_count="331" data-colab="{&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="MI2-DseEXwQ8" data-outputId="df28cf03-6923-42b9-e9ae-3c9f9589c71c">
+<div class="sourceCode" id="cb7"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>df1 <span class="op">=</span> pd.read_csv(<span class="st">&quot;/content/macosmajesticthousand200_1.csv&quot;</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>df2 <span class="op">=</span> pd.read_csv(<span class="st">&quot;/content/macosmajesticthousand200_2.csv&quot;</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>df3 <span class="op">=</span> pd.read_csv(<span class="st">&quot;/content/macosmajesticthousand200_3.csv&quot;</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>df4 <span class="op">=</span> pd.read_csv(<span class="st">&quot;/content/macosmajesticthousand200_4.csv&quot;</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>df5 <span class="op">=</span> pd.read_csv(<span class="st">&quot;/content/macosmajesticthousand200_5.csv&quot;</span>)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>df6 <span class="op">=</span> pd.read_csv(<span class="st">&quot;/content/macosmajesticthousand200_6.csv&quot;</span>)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>df7 <span class="op">=</span> pd.read_csv(<span class="st">&quot;/content/macosmajesticthousand200_7.csv&quot;</span>)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>df8 <span class="op">=</span> pd.read_csv(<span class="st">&quot;/content/macosmajesticthousand200_8.csv&quot;</span>)</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>df9 <span class="op">=</span> pd.read_csv(<span class="st">&quot;/content/macosmajesticthousand200_9.csv&quot;</span>)</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>df10 <span class="op">=</span> pd.read_csv(<span class="st">&quot;/content/windows10majesticthousand200_1.csv&quot;</span>)</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>df11 <span class="op">=</span> pd.read_csv(<span class="st">&quot;/content/windows10majesticthousand200_2.csv&quot;</span>)</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>df12 <span class="op">=</span> pd.read_csv(<span class="st">&quot;/content/windows10majesticthousand200_3.csv&quot;</span>)</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> df <span class="op">=</span> pd.concat([df1,df2,df3,df4,df5,df6,df7,df8,df9,df10,df11,df12])</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> df.fillna(<span class="bu">int</span>(<span class="dv">0</span>), downcast<span class="op">=</span><span class="st">&#39;infer&#39;</span>)</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>df.shape</span></code></pre></div>
+<div class="output execute_result" data-execution_count="331">
+<pre><code>(10613, 26)</code></pre>
+</div>
+</div>
+<div class="cell markdown" id="ZGpLsMvwFGQU">
+<p>We can see that we have 10,613 rows (page loads) and 26 columns.</p>
+</div>
+<div class="cell code" data-execution_count="332" data-colab="{&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="zUs4Y_DyFNbt" data-outputId="e328e94b-2a80-4b97-b351-ef0654e52e3c">
+<div class="sourceCode" id="cb9"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>df.columns</span></code></pre></div>
+<div class="output execute_result" data-execution_count="332">
+<pre><code>Index([&#39;tabId&#39;, &#39;hostname&#39;, &#39;countRequests&#39;, &#39;timeStamp&#39;, &#39;countSecure&#39;,
+       &#39;countInsecure&#39;, &#39;countBroken&#39;, &#39;countWeak&#39;, &#39;countHpkpTrue&#39;,
+       &#39;countHpkpFalse&#39;, &#39;countHstsTrue&#39;, &#39;countHstsFalse&#39;,
+       &#39;countIsExtendedValidationTrue&#39;, &#39;countIsExtendedValidationFalse&#39;,
+       &#39;countIsTRRTrue&#39;, &#39;countIsTRRFalse&#39;, &#39;countIsNotValidTrue&#39;,
+       &#39;countIsNotValidFalse&#39;, &#39;countCTSNotApplicable&#39;,
+       &#39;countCTSPolicyCompliant&#39;, &#39;countCTSPolicyNotEnoughSCTS&#39;,
+       &#39;countCTSPolicyNotDiverseSCTS&#39;, &#39;countIsDomainMismatchTrue&#39;,
+       &#39;countIsDomainMismatchFalse&#39;, &#39;countIsUntrustedTrue&#39;,
+       &#39;countIsUntrustedFalse&#39;],
+      dtype=&#39;object&#39;)</code></pre>
+</div>
+</div>
+<div class="cell markdown" id="dZV2jt4nFix3">
+<p>There are many columns, so I will talk about the relevant ones when they are analyzed, but here's a summary of the important columns: the hostname column contains the hostname of a web page, the contains the number of requests associated with the page load, and the columns are a count of how many webrequests from that page had a certain property be true/false.</p>
+</div>
+<div class="cell markdown" id="e_RRei3D4X_1">
+<p>##Data management/representation</p>
+</div>
+<div class="cell markdown" id="iukw5aUpGnw-">
+<p>Here are the columns that we have to work with</p>
+</div>
+<div class="cell code" data-execution_count="333" data-colab="{&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="eetpDLdRb97J" data-outputId="e08dbb99-8375-4d77-f133-c267cf2e018d">
+<div class="sourceCode" id="cb11"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>df.columns</span></code></pre></div>
+<div class="output execute_result" data-execution_count="333">
+<pre><code>Index([&#39;tabId&#39;, &#39;hostname&#39;, &#39;countRequests&#39;, &#39;timeStamp&#39;, &#39;countSecure&#39;,
+       &#39;countInsecure&#39;, &#39;countBroken&#39;, &#39;countWeak&#39;, &#39;countHpkpTrue&#39;,
+       &#39;countHpkpFalse&#39;, &#39;countHstsTrue&#39;, &#39;countHstsFalse&#39;,
+       &#39;countIsExtendedValidationTrue&#39;, &#39;countIsExtendedValidationFalse&#39;,
+       &#39;countIsTRRTrue&#39;, &#39;countIsTRRFalse&#39;, &#39;countIsNotValidTrue&#39;,
+       &#39;countIsNotValidFalse&#39;, &#39;countCTSNotApplicable&#39;,
+       &#39;countCTSPolicyCompliant&#39;, &#39;countCTSPolicyNotEnoughSCTS&#39;,
+       &#39;countCTSPolicyNotDiverseSCTS&#39;, &#39;countIsDomainMismatchTrue&#39;,
+       &#39;countIsDomainMismatchFalse&#39;, &#39;countIsUntrustedTrue&#39;,
+       &#39;countIsUntrustedFalse&#39;],
+      dtype=&#39;object&#39;)</code></pre>
+</div>
+</div>
+<div class="cell markdown" id="PNSpo4AFGrAS">
+<p>First we will make sure the hostname column is all strings, and remove any 0's (our NaN's were filled with zeros, there were a few missing values for the hostname (happens when making a new tab))</p>
+</div>
+<div class="cell code" data-execution_count="334" id="iTqsH4K8cfkI">
+<div class="sourceCode" id="cb13"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>df[<span class="st">&#39;hostname&#39;</span>] <span class="op">=</span> df[<span class="st">&#39;hostname&#39;</span>].<span class="bu">apply</span>(<span class="kw">lambda</span> x: <span class="bu">str</span>(x))</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>df[<span class="st">&#39;hostname&#39;</span>] <span class="op">=</span> df[<span class="st">&#39;hostname&#39;</span>].astype(<span class="st">&quot;string&quot;</span>)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> df[df[<span class="st">&#39;hostname&#39;</span>] <span class="op">!=</span> <span class="st">&#39;0&#39;</span>]</span></code></pre></div>
+</div>
+<div class="cell code" data-execution_count="335" data-colab="{&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="7MD-IfkTxAXs" data-outputId="ab2557e7-d8c0-4a86-94dc-fa91cc125053">
+<div class="sourceCode" id="cb14"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>df.shape</span></code></pre></div>
+<div class="output execute_result" data-execution_count="335">
+<pre><code>(10567, 26)</code></pre>
+</div>
+</div>
+<div class="cell markdown" id="VXD0ZLiCG9yH">
+<p>We now have 10,567 page loads after removing empty values.</p>
+</div>
+<div class="cell markdown" id="Hi3S3B9sHFWO">
+<p>Currently the columns of security info consist of counts of how many requests had each property, so we create new columns which serve as binary indicators of whether the page load had a certain property or not.</p>
+</div>
+<div class="cell code" data-execution_count="336" data-colab="{&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="bJav7reVcGIt" data-outputId="198b604f-b454-4b71-82ef-11f7d7d4cbc7">
+<div class="sourceCode" id="cb16"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>df[<span class="st">&#39;insecureIndicator&#39;</span>] <span class="op">=</span> df[<span class="st">&#39;countInsecure&#39;</span>].<span class="bu">apply</span>(<span class="kw">lambda</span> x: <span class="dv">1</span> <span class="cf">if</span> x <span class="op">&gt;</span> <span class="dv">0</span> <span class="cf">else</span> <span class="dv">0</span>)</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>df[<span class="st">&#39;isExtValidTrueIndicator&#39;</span>] <span class="op">=</span> df[<span class="st">&#39;countIsExtendedValidationTrue&#39;</span>].<span class="bu">apply</span>(<span class="kw">lambda</span> x: <span class="dv">1</span> <span class="cf">if</span> x <span class="op">&gt;</span> <span class="dv">0</span> <span class="cf">else</span> <span class="dv">0</span>)</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>df[<span class="st">&#39;TRRTrueIndicator&#39;</span>] <span class="op">=</span> df[<span class="st">&#39;countIsTRRTrue&#39;</span>].<span class="bu">apply</span>(<span class="kw">lambda</span> x: <span class="dv">1</span> <span class="cf">if</span> x <span class="op">&gt;</span> <span class="dv">0</span> <span class="cf">else</span> <span class="dv">0</span>)</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>df[<span class="st">&#39;hstsTrueIndicator&#39;</span>] <span class="op">=</span> df[<span class="st">&#39;countHstsTrue&#39;</span>].<span class="bu">apply</span>(<span class="kw">lambda</span> x: <span class="dv">1</span> <span class="cf">if</span> x <span class="op">&gt;</span> <span class="dv">0</span> <span class="cf">else</span> <span class="dv">0</span>)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>df[<span class="st">&#39;hpkpTrueIndicator&#39;</span>] <span class="op">=</span> df[<span class="st">&#39;countHpkpTrue&#39;</span>].<span class="bu">apply</span>(<span class="kw">lambda</span> x: <span class="dv">1</span> <span class="cf">if</span> x <span class="op">&gt;</span> <span class="dv">0</span> <span class="cf">else</span> <span class="dv">0</span>)</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>df[<span class="st">&#39;hostname&#39;</span>].value_counts()</span></code></pre></div>
+<div class="output execute_result" data-execution_count="336">
+<pre><code>reddit.com                  285
+google.com                  259
+apple.com                   221
+accounts.google.com         220
+youtube.com                 160
+                           ... 
+revoked-rsa-dv.ssl.com        1
+calparents.berkeley.edu       1
+coronavirus.berkeley.edu      1
+burst.shopify.com             1
+faq.dailymotion.com           1
+Name: hostname, Length: 404, dtype: Int64</code></pre>
+</div>
+</div>
+<div class="cell markdown" id="1CshFMy8HYhV">
+<p>Now we will make a new dataframe for analyzing each unique domain in our dataframe.</p>
+</div>
+<div class="cell code" data-execution_count="337" id="n4gzP2bnl0cW">
+<div class="sourceCode" id="cb18"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> pd.DataFrame()</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> site <span class="kw">in</span> df[<span class="st">&#39;hostname&#39;</span>].unique():</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>  hostname <span class="op">=</span> <span class="bu">str</span>(site)</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>  data <span class="op">=</span> data.append({<span class="st">&#39;website&#39;</span>: hostname, </span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&#39;countPageLoads&#39;</span>: <span class="bu">len</span>(df[df[<span class="st">&#39;hostname&#39;</span>] <span class="op">==</span> hostname].index), </span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&#39;countRequests&#39;</span>: df[df[<span class="st">&#39;hostname&#39;</span>] <span class="op">==</span> hostname][<span class="st">&#39;countRequests&#39;</span>].<span class="bu">sum</span>(), </span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&#39;insecure%&#39;</span>: df[df[<span class="st">&#39;hostname&#39;</span>] <span class="op">==</span> hostname][<span class="st">&#39;insecureIndicator&#39;</span>].mean() <span class="op">*</span> <span class="dv">100</span>,</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&#39;extValid%&#39;</span>: df[df[<span class="st">&#39;hostname&#39;</span>] <span class="op">==</span> hostname][<span class="st">&#39;isExtValidTrueIndicator&#39;</span>].mean() <span class="op">*</span> <span class="dv">100</span>,</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&#39;hstsTrue%&#39;</span>: df[df[<span class="st">&#39;hostname&#39;</span>] <span class="op">==</span> hostname][<span class="st">&#39;hstsTrueIndicator&#39;</span>].mean() <span class="op">*</span> <span class="dv">100</span>, </span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&#39;TRRTrue%&#39;</span>: df[df[<span class="st">&#39;hostname&#39;</span>] <span class="op">==</span> hostname][<span class="st">&#39;TRRTrueIndicator&#39;</span>].mean() <span class="op">*</span> <span class="dv">100</span>, </span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&#39;hpkpTrue%&#39;</span>: df[df[<span class="st">&#39;hostname&#39;</span>] <span class="op">==</span> hostname][<span class="st">&#39;hpkpTrueIndicator&#39;</span>].mean() <span class="op">*</span> <span class="dv">100</span>}, </span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>                   ignore_index <span class="op">=</span> <span class="va">True</span>)</span></code></pre></div>
+</div>
+<div class="cell markdown" id="iGKAy0nbHh9g">
+<p>We give this new dataframe columns representing: how many page loads there were for a certain domain (countPageLoads), how many requests each domain had (countRequests), and columns containing the percentage of page loads to a certain domain which had a 1 in our indicator columns. (For an indicator column, we can find the percentage by just taking the mean (and multiplying by 100 to get it in the expected percentage format))</p>
+</div>
+<div class="cell markdown" id="DihwWJERILKx">
+<p>Now let's sort our new dataframe by countPageLoads and take a look at which domains were most visisted by our crawler</p>
+</div>
+<div class="cell code" data-execution_count="338" data-colab="{&quot;height&quot;:363,&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="eedbnEOnv1Ub" data-outputId="383bf15b-e359-44e1-c60a-e5f724224a3f">
+<div class="sourceCode" id="cb19"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>data.sort_values(by<span class="op">=</span><span class="st">&quot;countPageLoads&quot;</span>, ascending<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>data.head(<span class="dv">10</span>)</span></code></pre></div>
+<div class="output execute_result" data-execution_count="338">
+
+  <div id="df-e449fee9-682f-4bb4-91d7-89b00b9d3697">
+    <div class="colab-df-container">
+      <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>website</th>
+      <th>countPageLoads</th>
+      <th>countRequests</th>
+      <th>insecure%</th>
+      <th>extValid%</th>
+      <th>hstsTrue%</th>
+      <th>TRRTrue%</th>
+      <th>hpkpTrue%</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>google.com</td>
+      <td>259.0</td>
+      <td>4618.0</td>
+      <td>0.386100</td>
+      <td>1.158301</td>
+      <td>0.0</td>
+      <td>66.023166</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>about.google</td>
+      <td>24.0</td>
+      <td>1092.0</td>
+      <td>4.166667</td>
+      <td>0.000000</td>
+      <td>0.0</td>
+      <td>41.666667</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>store.google.com</td>
+      <td>8.0</td>
+      <td>597.0</td>
+      <td>0.000000</td>
+      <td>0.000000</td>
+      <td>0.0</td>
+      <td>12.500000</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>mail.google.com</td>
+      <td>8.0</td>
+      <td>203.0</td>
+      <td>0.000000</td>
+      <td>0.000000</td>
+      <td>0.0</td>
+      <td>12.500000</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>accounts.google.com</td>
+      <td>220.0</td>
+      <td>4179.0</td>
+      <td>0.909091</td>
+      <td>0.000000</td>
+      <td>0.0</td>
+      <td>81.363636</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>smallbusiness.withgoogle.com</td>
+      <td>4.0</td>
+      <td>119.0</td>
+      <td>0.000000</td>
+      <td>0.000000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>facebook.com</td>
+      <td>60.0</td>
+      <td>988.0</td>
+      <td>0.000000</td>
+      <td>0.000000</td>
+      <td>0.0</td>
+      <td>45.000000</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>es-la.facebook.com</td>
+      <td>7.0</td>
+      <td>97.0</td>
+      <td>0.000000</td>
+      <td>0.000000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>fr-fr.facebook.com</td>
+      <td>7.0</td>
+      <td>126.0</td>
+      <td>0.000000</td>
+      <td>0.000000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>zh-cn.facebook.com</td>
+      <td>7.0</td>
+      <td>126.0</td>
+      <td>0.000000</td>
+      <td>0.000000</td>
+      <td>0.0</td>
+      <td>0.000000</td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+      <button class="colab-df-convert" onclick="convertToInteractive('df-e449fee9-682f-4bb4-91d7-89b00b9d3697')"
+              title="Convert this dataframe to an interactive table."
+              style="display:none;">
+        
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px"viewBox="0 0 24 24"
+       width="24px">
+    <path d="M0 0h24v24H0V0z" fill="none"/>
+    <path d="M18.56 5.44l.94 2.06.94-2.06 2.06-.94-2.06-.94-.94-2.06-.94 2.06-2.06.94zm-11 1L8.5 8.5l.94-2.06 2.06-.94-2.06-.94L8.5 2.5l-.94 2.06-2.06.94zm10 10l.94 2.06.94-2.06 2.06-.94-2.06-.94-.94-2.06-.94 2.06-2.06.94z"/><path d="M17.41 7.96l-1.37-1.37c-.4-.4-.92-.59-1.43-.59-.52 0-1.04.2-1.43.59L10.3 9.45l-7.72 7.72c-.78.78-.78 2.05 0 2.83L4 21.41c.39.39.9.59 1.41.59.51 0 1.02-.2 1.41-.59l7.78-7.78 2.81-2.81c.8-.78.8-2.07 0-2.86zM5.41 20L4 18.59l7.72-7.72 1.47 1.35L5.41 20z"/>
+  </svg>
+      </button>
+      
+  <style>
+    .colab-df-container {
+      display:flex;
+      flex-wrap:wrap;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  </style>
+
+      <script>
+        const buttonEl =
+          document.querySelector('#df-e449fee9-682f-4bb4-91d7-89b00b9d3697 button.colab-df-convert');
+        buttonEl.style.display =
+          google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+        async function convertToInteractive(key) {
+          const element = document.querySelector('#df-e449fee9-682f-4bb4-91d7-89b00b9d3697');
+          const dataTable =
+            await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                     [key], {});
+          if (!dataTable) return;
+
+          const docLinkHtml = 'Like what you see? Visit the ' +
+            '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+            + ' to learn more about interactive tables.';
+          element.innerHTML = '';
+          dataTable['output_type'] = 'display_data';
+          await google.colab.output.renderOutput(dataTable, element);
+          const docLink = document.createElement('div');
+          docLink.innerHTML = docLinkHtml;
+          element.appendChild(docLink);
+        }
+      </script>
+    </div>
+  </div>
+  
+</div>
+</div>
+<div class="cell markdown" id="ZaKZyJhhIfqw">
+<p>Just from a quick glance, a couple of things stand out. Apple has a very high percentage of pages loaded with an Extended Validation certificate. Twitter is the only website for which the percentage of page loads using HTTP Strict Transport Security (hsts%) was nonzero. We can keep these in mind for when we do some more exploratory data analysis.</p>
+</div>
+<div class="cell markdown" id="s5NyzG7KJEwu">
+<p>Now let's take a look at the domains which had the highest percentage of page loads with an insecure request.</p>
+</div>
+<div class="cell code" data-execution_count="339" data-colab="{&quot;height&quot;:363,&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="rzIqXUrnPYfI" data-outputId="b8fb262a-7e45-4dc3-8d32-5377adcd3d05">
+<div class="sourceCode" id="cb20"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>data.sort_values(by<span class="op">=</span><span class="st">&quot;insecure%&quot;</span>, ascending<span class="op">=</span><span class="va">False</span>).head(<span class="dv">10</span>)</span></code></pre></div>
+<div class="output execute_result" data-execution_count="339">
+
+  <div id="df-d0b042ec-5ca8-4b46-bac0-704e57ef57ee">
+    <div class="colab-df-container">
+      <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>website</th>
+      <th>countPageLoads</th>
+      <th>countRequests</th>
+      <th>insecure%</th>
+      <th>extValid%</th>
+      <th>hstsTrue%</th>
+      <th>TRRTrue%</th>
+      <th>hpkpTrue%</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>392</th>
+      <td>tieba.baidu.com</td>
+      <td>2.0</td>
+      <td>161.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>372</th>
+      <td>pingdom.com</td>
+      <td>1.0</td>
+      <td>90.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>323</th>
+      <td>give.berkeley.edu</td>
+      <td>1.0</td>
+      <td>15.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>389</th>
+      <td>news.baidu.com</td>
+      <td>3.0</td>
+      <td>97.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>391</th>
+      <td>map.baidu.com</td>
+      <td>3.0</td>
+      <td>266.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>204</th>
+      <td>springernature.com</td>
+      <td>3.0</td>
+      <td>37.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>195</th>
+      <td>parents.stanford.edu</td>
+      <td>2.0</td>
+      <td>29.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>96</th>
+      <td>employees.nih.gov</td>
+      <td>7.0</td>
+      <td>77.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>399</th>
+      <td>image.baidu.com</td>
+      <td>1.0</td>
+      <td>35.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>340</th>
+      <td>natgeopicturesoftheyearcontest.com</td>
+      <td>1.0</td>
+      <td>7.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.0</td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+      <button class="colab-df-convert" onclick="convertToInteractive('df-d0b042ec-5ca8-4b46-bac0-704e57ef57ee')"
+              title="Convert this dataframe to an interactive table."
+              style="display:none;">
+        
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px"viewBox="0 0 24 24"
+       width="24px">
+    <path d="M0 0h24v24H0V0z" fill="none"/>
+    <path d="M18.56 5.44l.94 2.06.94-2.06 2.06-.94-2.06-.94-.94-2.06-.94 2.06-2.06.94zm-11 1L8.5 8.5l.94-2.06 2.06-.94-2.06-.94L8.5 2.5l-.94 2.06-2.06.94zm10 10l.94 2.06.94-2.06 2.06-.94-2.06-.94-.94-2.06-.94 2.06-2.06.94z"/><path d="M17.41 7.96l-1.37-1.37c-.4-.4-.92-.59-1.43-.59-.52 0-1.04.2-1.43.59L10.3 9.45l-7.72 7.72c-.78.78-.78 2.05 0 2.83L4 21.41c.39.39.9.59 1.41.59.51 0 1.02-.2 1.41-.59l7.78-7.78 2.81-2.81c.8-.78.8-2.07 0-2.86zM5.41 20L4 18.59l7.72-7.72 1.47 1.35L5.41 20z"/>
+  </svg>
+      </button>
+      
+  <style>
+    .colab-df-container {
+      display:flex;
+      flex-wrap:wrap;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  </style>
+
+      <script>
+        const buttonEl =
+          document.querySelector('#df-d0b042ec-5ca8-4b46-bac0-704e57ef57ee button.colab-df-convert');
+        buttonEl.style.display =
+          google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+        async function convertToInteractive(key) {
+          const element = document.querySelector('#df-d0b042ec-5ca8-4b46-bac0-704e57ef57ee');
+          const dataTable =
+            await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                     [key], {});
+          if (!dataTable) return;
+
+          const docLinkHtml = 'Like what you see? Visit the ' +
+            '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+            + ' to learn more about interactive tables.';
+          element.innerHTML = '';
+          dataTable['output_type'] = 'display_data';
+          await google.colab.output.renderOutput(dataTable, element);
+          const docLink = document.createElement('div');
+          docLink.innerHTML = docLinkHtml;
+          element.appendChild(docLink);
+        }
+      </script>
+    </div>
+  </div>
+  
+</div>
+</div>
+<div class="cell markdown" id="M6qmJEpiJLYe">
+<p>A lot of these have only 1 page load, so the fact that they have 100% of their page loads having insecure requests isn't very meaningful, so let's filter this so we only see domains with at least a couple page loads.</p>
+</div>
+<div class="cell code" data-execution_count="340" data-colab="{&quot;height&quot;:363,&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="jOYM0h0AJbN_" data-outputId="f8efa3a9-97ab-42e8-800d-f785ba30780b">
+<div class="sourceCode" id="cb21"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>data[data[<span class="st">&#39;countPageLoads&#39;</span>] <span class="op">&gt;=</span> <span class="dv">5</span>].sort_values(by<span class="op">=</span><span class="st">&quot;insecure%&quot;</span>, ascending<span class="op">=</span><span class="va">False</span>).head(<span class="dv">10</span>)</span></code></pre></div>
+<div class="output execute_result" data-execution_count="340">
+
+  <div id="df-7da71f93-182b-4dc2-8666-6582b725a976">
+    <div class="colab-df-container">
+      <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>website</th>
+      <th>countPageLoads</th>
+      <th>countRequests</th>
+      <th>insecure%</th>
+      <th>extValid%</th>
+      <th>hstsTrue%</th>
+      <th>TRRTrue%</th>
+      <th>hpkpTrue%</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>96</th>
+      <td>employees.nih.gov</td>
+      <td>7.0</td>
+      <td>77.0</td>
+      <td>100.000000</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.000000</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>351</th>
+      <td>weibo.com</td>
+      <td>19.0</td>
+      <td>553.0</td>
+      <td>89.473684</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>89.473684</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>113</th>
+      <td>status.twitter.com</td>
+      <td>7.0</td>
+      <td>142.0</td>
+      <td>85.714286</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.000000</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>89</th>
+      <td>vaultpress.com</td>
+      <td>7.0</td>
+      <td>170.0</td>
+      <td>71.428571</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.000000</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>175</th>
+      <td>news.mit.edu</td>
+      <td>7.0</td>
+      <td>93.0</td>
+      <td>71.428571</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.000000</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>229</th>
+      <td>hp.com</td>
+      <td>41.0</td>
+      <td>833.0</td>
+      <td>65.853659</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>80.487805</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>93</th>
+      <td>automattic.com</td>
+      <td>7.0</td>
+      <td>172.0</td>
+      <td>57.142857</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.000000</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>90</th>
+      <td>akismet.com</td>
+      <td>7.0</td>
+      <td>185.0</td>
+      <td>57.142857</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.000000</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>177</th>
+      <td>wsj.com</td>
+      <td>29.0</td>
+      <td>1427.0</td>
+      <td>31.034483</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>82.758621</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>52</th>
+      <td>developers.google.com</td>
+      <td>7.0</td>
+      <td>287.0</td>
+      <td>28.571429</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>100.000000</td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+      <button class="colab-df-convert" onclick="convertToInteractive('df-7da71f93-182b-4dc2-8666-6582b725a976')"
+              title="Convert this dataframe to an interactive table."
+              style="display:none;">
+        
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px"viewBox="0 0 24 24"
+       width="24px">
+    <path d="M0 0h24v24H0V0z" fill="none"/>
+    <path d="M18.56 5.44l.94 2.06.94-2.06 2.06-.94-2.06-.94-.94-2.06-.94 2.06-2.06.94zm-11 1L8.5 8.5l.94-2.06 2.06-.94-2.06-.94L8.5 2.5l-.94 2.06-2.06.94zm10 10l.94 2.06.94-2.06 2.06-.94-2.06-.94-.94-2.06-.94 2.06-2.06.94z"/><path d="M17.41 7.96l-1.37-1.37c-.4-.4-.92-.59-1.43-.59-.52 0-1.04.2-1.43.59L10.3 9.45l-7.72 7.72c-.78.78-.78 2.05 0 2.83L4 21.41c.39.39.9.59 1.41.59.51 0 1.02-.2 1.41-.59l7.78-7.78 2.81-2.81c.8-.78.8-2.07 0-2.86zM5.41 20L4 18.59l7.72-7.72 1.47 1.35L5.41 20z"/>
+  </svg>
+      </button>
+      
+  <style>
+    .colab-df-container {
+      display:flex;
+      flex-wrap:wrap;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  </style>
+
+      <script>
+        const buttonEl =
+          document.querySelector('#df-7da71f93-182b-4dc2-8666-6582b725a976 button.colab-df-convert');
+        buttonEl.style.display =
+          google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+        async function convertToInteractive(key) {
+          const element = document.querySelector('#df-7da71f93-182b-4dc2-8666-6582b725a976');
+          const dataTable =
+            await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                     [key], {});
+          if (!dataTable) return;
+
+          const docLinkHtml = 'Like what you see? Visit the ' +
+            '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+            + ' to learn more about interactive tables.';
+          element.innerHTML = '';
+          dataTable['output_type'] = 'display_data';
+          await google.colab.output.renderOutput(dataTable, element);
+          const docLink = document.createElement('div');
+          docLink.innerHTML = docLinkHtml;
+          element.appendChild(docLink);
+        }
+      </script>
+    </div>
+  </div>
+  
+</div>
+</div>
+<div class="cell markdown" id="OQyArcgyJko2">
+<p>The standout here is hp.com, which has a good sample size (41 page loads) and a very high insecure%. We will also keep this in mind when we do further data analysis. Another one which catches my eye is weibo with 89% over 19 page loads. 19 is probably far too few to draw any conclusions, but we should keep it in mind for when we continue this study and collect more data.</p>
+</div>
+<div class="cell markdown" id="Gsp3BumN4hKj">
+<p>##Exploratory data analysis</p>
+</div>
+<div class="cell markdown" id="PFRLbPjSKMMJ">
+<p>Now we will do some data analysis, using the points of interest mentioned above as starting points/things to investigate:</p>
+<ol>
+<li>Apple seems to have high extended validation%</li>
+<li>Twitter seems to have high HSTS%</li>
+<li>HP seems to have high insecure%</li>
+</ol>
+</div>
+<div class="cell code" data-execution_count="341" data-colab="{&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="OaX2S0NFK1Mn" data-outputId="3e14db88-a9a1-4d5f-e1ed-f4a3c993570e">
+<div class="sourceCode" id="cb22"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>data.shape</span></code></pre></div>
+<div class="output execute_result" data-execution_count="341">
+<pre><code>(404, 8)</code></pre>
+</div>
+</div>
+<div class="cell markdown" id="4GNByiUaK3on">
+<p>Our data has 404 domains, far too many for us to plot and get any kind of useful graph, so we will make a new dataframe by taking the top 100 most visited domain in our dataframe</p>
+</div>
+<div class="cell code" data-execution_count="342" id="qeG9viFvNoJv">
+<div class="sourceCode" id="cb24"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>data_for_graphs <span class="op">=</span> data.sort_values(by<span class="op">=</span><span class="st">&quot;countPageLoads&quot;</span>, ascending<span class="op">=</span><span class="va">False</span>).iloc[<span class="dv">0</span>:<span class="dv">100</span>,:]</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>data_for_graphs <span class="op">=</span> data_for_graphs.<span class="bu">round</span>(decimals<span class="op">=</span><span class="dv">2</span>)</span></code></pre></div>
+</div>
+<div class="cell markdown" id="qaaeI4xULOkF">
+<p>Now let's do a bar plot to see which domains are in this dataframe, and how many page loads they had</p>
+</div>
+<div class="cell code" data-execution_count="343" data-colab="{&quot;height&quot;:648,&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="rJKind6oohW2" data-outputId="7dfc9276-797c-4a10-d35f-934bfca71a6d">
+<div class="sourceCode" id="cb25"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>plot1 <span class="op">=</span> data_for_graphs.plot(kind <span class="op">=</span> <span class="st">&#39;bar&#39;</span>, </span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>                             figsize<span class="op">=</span>(<span class="dv">20</span>, <span class="dv">10</span>), </span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>                             x<span class="op">=</span><span class="st">&#39;website&#39;</span>, </span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>                             y<span class="op">=</span><span class="st">&#39;countPageLoads&#39;</span>, </span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>                             ylabel<span class="op">=</span><span class="st">&#39;number of page loads&#39;</span>,</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>                             color<span class="op">=</span>[<span class="st">&#39;teal&#39;</span>, <span class="st">&#39;dimgray&#39;</span>, <span class="st">&#39;red&#39;</span>, <span class="st">&#39;gold&#39;</span>, <span class="st">&#39;lawngreen&#39;</span>, <span class="st">&#39;turquoise&#39;</span>, <span class="st">&#39;darkviolet&#39;</span>, <span class="st">&#39;steelblue&#39;</span>, <span class="st">&#39;peru&#39;</span>, <span class="st">&#39;darkgoldenrod&#39;</span>, <span class="st">&#39;thistle&#39;</span>, <span class="st">&#39;aquamarine&#39;</span>, <span class="st">&#39;pink&#39;</span>],</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>                             legend<span class="op">=</span><span class="va">False</span></span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>                             )</span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> p <span class="kw">in</span> plot1.patches:</span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>  plot1.annotate(<span class="bu">str</span>(p.get_height()), (p.get_x() <span class="op">*</span> <span class="dv">1</span>, p.get_height() <span class="op">*</span> <span class="fl">1.02</span>), rotation<span class="op">=</span><span class="dv">90</span>)</span></code></pre></div>
+<div class="output display_data">
+<p><img src="vertopal_c43a594cf64041dc9ce5066107e206e2/16f21feb759f1adaf7adbaf5804cc3e6c7a1963a.png" /></p>
+</div>
+</div>
+<div class="cell markdown" id="wYFLFEylLoK5">
+<p>It looks power law-esque. A visual inspection of the plot shows that the sites we had questions <a href="about:--apple" class="uri">about:--apple</a>, twitter, and hp--are in our dataframe</p>
+</div>
+<div class="cell markdown" id="pBUtMa4pMLYB">
+<p>Now let's plot the insecure% and keep an eye out for hp.com</p>
+</div>
+<div class="cell code" data-execution_count="344" data-colab="{&quot;height&quot;:653,&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="XaSS9l0qnmVB" data-outputId="6f7ad704-222a-453f-de9a-388f065b6d87">
+<div class="sourceCode" id="cb26"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>plot2 <span class="op">=</span> data_for_graphs.plot(kind <span class="op">=</span> <span class="st">&#39;bar&#39;</span>, </span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>                             figsize<span class="op">=</span>(<span class="dv">20</span>, <span class="dv">10</span>), </span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>                             x<span class="op">=</span><span class="st">&#39;website&#39;</span>, </span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>                             y<span class="op">=</span><span class="st">&#39;insecure%&#39;</span>, </span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>                             ylabel<span class="op">=</span><span class="st">&#39;</span><span class="sc">% o</span><span class="st">f page loads containing an insecure request&#39;</span>,</span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>                             color<span class="op">=</span>[<span class="st">&#39;teal&#39;</span>, <span class="st">&#39;dimgray&#39;</span>, <span class="st">&#39;red&#39;</span>, <span class="st">&#39;gold&#39;</span>, <span class="st">&#39;lawngreen&#39;</span>, <span class="st">&#39;turquoise&#39;</span>, <span class="st">&#39;darkviolet&#39;</span>, <span class="st">&#39;steelblue&#39;</span>, <span class="st">&#39;peru&#39;</span>, <span class="st">&#39;darkgoldenrod&#39;</span>, <span class="st">&#39;thistle&#39;</span>, <span class="st">&#39;aquamarine&#39;</span>, <span class="st">&#39;pink&#39;</span>],</span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>                             legend<span class="op">=</span><span class="va">False</span></span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a>                             )</span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> p <span class="kw">in</span> plot2.patches:</span>
+<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a>  plot2.annotate(<span class="bu">str</span>(p.get_height()), (p.get_x() <span class="op">*</span> <span class="dv">1</span>, p.get_height() <span class="op">*</span> <span class="fl">1.02</span>), rotation<span class="op">=</span><span class="dv">90</span>)</span></code></pre></div>
+<div class="output display_data">
+<p><img src="vertopal_c43a594cf64041dc9ce5066107e206e2/fa078a559e06151b26a44831e7d896c183830724.png" /></p>
+</div>
+</div>
+<div class="cell markdown" id="oPZpzFOHMT3A">
+<p>Yea, so it looks like hp is particularly bad. Hp.com's insecure% is aprox. 10 times higher than the second highest: doi.org at 6.35%</p>
+</div>
+<div class="cell markdown" id="ovHsi2L9Mog5">
+<p>Next let's look at external validation cert. %, keeping apple in mind.</p>
+</div>
+<div class="cell code" data-execution_count="345" data-colab="{&quot;height&quot;:648,&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="Q0MDAMx7rZn0" data-outputId="6d1c9f0a-9abd-43a6-ae2f-39c57d0bf323">
+<div class="sourceCode" id="cb27"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>plot3 <span class="op">=</span> data_for_graphs.plot(kind <span class="op">=</span> <span class="st">&#39;bar&#39;</span>, </span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>                             figsize<span class="op">=</span>(<span class="dv">20</span>, <span class="dv">10</span>), </span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>                             x<span class="op">=</span><span class="st">&#39;website&#39;</span>, </span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>                             y<span class="op">=</span><span class="st">&#39;extValid%&#39;</span>, </span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>                             ylabel<span class="op">=</span><span class="st">&#39;</span><span class="sc">% o</span><span class="st">f page loads containing a request with an Extended Validation Certificate&#39;</span>,</span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>                             color<span class="op">=</span>[<span class="st">&#39;teal&#39;</span>, <span class="st">&#39;dimgray&#39;</span>, <span class="st">&#39;red&#39;</span>, <span class="st">&#39;gold&#39;</span>, <span class="st">&#39;lawngreen&#39;</span>, <span class="st">&#39;turquoise&#39;</span>, <span class="st">&#39;darkviolet&#39;</span>, <span class="st">&#39;steelblue&#39;</span>, <span class="st">&#39;peru&#39;</span>, <span class="st">&#39;darkgoldenrod&#39;</span>, <span class="st">&#39;thistle&#39;</span>, <span class="st">&#39;aquamarine&#39;</span>, <span class="st">&#39;pink&#39;</span>],</span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>                             legend<span class="op">=</span><span class="va">False</span></span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>                             )</span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> p <span class="kw">in</span> plot3.patches:</span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>  plot3.annotate(<span class="bu">str</span>(p.get_height()), (p.get_x() <span class="op">*</span> <span class="dv">1</span>, p.get_height() <span class="op">*</span> <span class="fl">1.02</span>), rotation<span class="op">=</span><span class="dv">90</span>)</span></code></pre></div>
+<div class="output display_data">
+<p><img src="vertopal_c43a594cf64041dc9ce5066107e206e2/bdf6ae4e405ed49ea49f7af8c6feb2bed8ed0334.png" /></p>
+</div>
+</div>
+<div class="cell markdown" id="xg9mh3BOMwuK">
+<p>Apple are definitely among the top domains in this category, but there are several others close and exceeding it, so it is not quite the same situation as hp.</p>
+</div>
+<div class="cell markdown" id="g8upvzJDNG4H">
+<p>Now let's look at hsts%, keeping twitter in mind.</p>
+</div>
+<div class="cell code" data-execution_count="346" data-colab="{&quot;height&quot;:646,&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="5hykZb6nraDJ" data-outputId="5a8ff167-dfbc-4815-a8e0-5522decc4e45">
+<div class="sourceCode" id="cb28"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>plot5 <span class="op">=</span> data_for_graphs.plot(kind <span class="op">=</span> <span class="st">&#39;bar&#39;</span>, </span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>                             figsize<span class="op">=</span>(<span class="dv">20</span>, <span class="dv">10</span>), </span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>                             x<span class="op">=</span><span class="st">&#39;website&#39;</span>, </span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>                             y<span class="op">=</span><span class="st">&#39;hstsTrue%&#39;</span>, </span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>                             ylabel<span class="op">=</span><span class="st">&#39;</span><span class="sc">% o</span><span class="st">f page loads containing a request using hsts&#39;</span>,</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>                             color<span class="op">=</span>[<span class="st">&#39;teal&#39;</span>, <span class="st">&#39;dimgray&#39;</span>, <span class="st">&#39;red&#39;</span>, <span class="st">&#39;gold&#39;</span>, <span class="st">&#39;lawngreen&#39;</span>, <span class="st">&#39;turquoise&#39;</span>, <span class="st">&#39;darkviolet&#39;</span>, <span class="st">&#39;steelblue&#39;</span>, <span class="st">&#39;peru&#39;</span>, <span class="st">&#39;darkgoldenrod&#39;</span>, <span class="st">&#39;thistle&#39;</span>, <span class="st">&#39;aquamarine&#39;</span>, <span class="st">&#39;pink&#39;</span>],</span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>                             legend<span class="op">=</span><span class="va">False</span></span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>                             )</span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> p <span class="kw">in</span> plot5.patches:</span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a>  plot5.annotate(<span class="bu">str</span>(p.get_height()), (p.get_x() <span class="op">*</span> <span class="dv">1</span>, p.get_height() <span class="op">*</span> <span class="fl">1.02</span>), rotation<span class="op">=</span><span class="dv">90</span>)</span></code></pre></div>
+<div class="output display_data">
+<p><img src="vertopal_c43a594cf64041dc9ce5066107e206e2/4dde4eb84e1fca85a0ac9b60ef4664f82ca37dbf.png" /></p>
+</div>
+</div>
+<div class="cell markdown" id="9kovc7AaNPiy">
+<p>Twitter is a huge outlier here, so much so that I think there must be a bug either with the plugin or the api, so that is useful information.</p>
+</div>
+<div class="cell markdown" id="KtP9EVxDOx2e">
+<p>Now let's create some scatter plots of these 3 variables (insecure%, extValid%, hstsTrue%) so see if there might be some sort of linear relationship</p>
+</div>
+<div class="cell code" data-execution_count="347" data-colab="{&quot;height&quot;:279,&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="Megkr6323Nr5" data-outputId="d22d3904-33ab-4664-808e-4fd97b27285c">
+<div class="sourceCode" id="cb29"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>plot <span class="op">=</span> data_for_graphs.plot.scatter(x<span class="op">=</span><span class="st">&#39;insecure%&#39;</span>,y<span class="op">=</span><span class="st">&#39;extValid%&#39;</span>)</span></code></pre></div>
+<div class="output display_data">
+<p><img src="vertopal_c43a594cf64041dc9ce5066107e206e2/9837fbd0ee766c806066113da4c22fa45100bc40.png" /></p>
+</div>
+</div>
+<div class="cell code" data-execution_count="348" data-colab="{&quot;height&quot;:279,&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="cI7IB8lWOpdU" data-outputId="619b7920-f8ce-4652-ee74-20d24c79a0bd">
+<div class="sourceCode" id="cb30"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>plot <span class="op">=</span> data_for_graphs.plot.scatter(x<span class="op">=</span><span class="st">&#39;hstsTrue%&#39;</span>,y<span class="op">=</span><span class="st">&#39;insecure%&#39;</span>)</span></code></pre></div>
+<div class="output display_data">
+<p><img src="vertopal_c43a594cf64041dc9ce5066107e206e2/0eb362c8a14db31985da25c2d6b0dc730974ee3d.png" /></p>
+</div>
+</div>
+<div class="cell code" data-execution_count="349" data-colab="{&quot;height&quot;:279,&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="6Ch4FkcsOtyD" data-outputId="19b88708-63cd-4db0-a42c-9adce309eed7">
+<div class="sourceCode" id="cb31"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>plot <span class="op">=</span> data_for_graphs.plot.scatter(x<span class="op">=</span><span class="st">&#39;hstsTrue%&#39;</span>,y<span class="op">=</span><span class="st">&#39;extValid%&#39;</span>)</span></code></pre></div>
+<div class="output display_data">
+<p><img src="vertopal_c43a594cf64041dc9ce5066107e206e2/b8bd20f17b5c771e2265c257a9d38eb0ad09bf16.png" /></p>
+</div>
+</div>
+<div class="cell markdown" id="mJaOjxtzO-Kf">
+<p>Twitter and hp are pretty easy to spot on these plots (twitter is the hsts outlier, hp is the insecure% outlier), but otherwise the points seem to just be distributed over a vertical line in all 3 of these plots, so without needing to run a regression, I feel confident saying that there is no linear relationship between any of these variables.</p>
+</div>
+<div class="cell markdown" id="AmAQ8miS4kqf">
+<p>##Hypothesis testing</p>
+</div>
+<div class="cell markdown" id="7EXKcnd8PqMd">
+<p>Now let's test the hypotheses we came up with in the previous section</p>
+</div>
+<div class="cell markdown" id="5dNXRHnEPwgI">
+<p>Let's remind ourselves which columns we have to work with in the original data.</p>
+</div>
+<div class="cell code" data-execution_count="350" data-colab="{&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="cb2CmPSHxfTg" data-outputId="8f036301-6930-4ccc-de5f-3d8ee1115e10">
+<div class="sourceCode" id="cb32"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>df.columns</span></code></pre></div>
+<div class="output execute_result" data-execution_count="350">
+<pre><code>Index([&#39;tabId&#39;, &#39;hostname&#39;, &#39;countRequests&#39;, &#39;timeStamp&#39;, &#39;countSecure&#39;,
+       &#39;countInsecure&#39;, &#39;countBroken&#39;, &#39;countWeak&#39;, &#39;countHpkpTrue&#39;,
+       &#39;countHpkpFalse&#39;, &#39;countHstsTrue&#39;, &#39;countHstsFalse&#39;,
+       &#39;countIsExtendedValidationTrue&#39;, &#39;countIsExtendedValidationFalse&#39;,
+       &#39;countIsTRRTrue&#39;, &#39;countIsTRRFalse&#39;, &#39;countIsNotValidTrue&#39;,
+       &#39;countIsNotValidFalse&#39;, &#39;countCTSNotApplicable&#39;,
+       &#39;countCTSPolicyCompliant&#39;, &#39;countCTSPolicyNotEnoughSCTS&#39;,
+       &#39;countCTSPolicyNotDiverseSCTS&#39;, &#39;countIsDomainMismatchTrue&#39;,
+       &#39;countIsDomainMismatchFalse&#39;, &#39;countIsUntrustedTrue&#39;,
+       &#39;countIsUntrustedFalse&#39;, &#39;insecureIndicator&#39;, &#39;isExtValidTrueIndicator&#39;,
+       &#39;TRRTrueIndicator&#39;, &#39;hstsTrueIndicator&#39;, &#39;hpkpTrueIndicator&#39;],
+      dtype=&#39;object&#39;)</code></pre>
+</div>
+</div>
+<div class="cell markdown" id="rs13qtnBP0Y0">
+<p>Now let's first run some hypothesis tests to confirm that there is something going on with hp.com causing there to be more page loads with an insecure request. We will run a Mann-Whitney U test because our data is unpaired and non-normal (nonparametric). We will run this test to find the probability that the sample of hp.com's insecure page loads and those of some other popular sites came from the same distribution.</p>
+</div>
+<div class="cell code" data-execution_count="351" data-colab="{&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="9yuICzEo9giz" data-outputId="ff3bf5ec-50c4-4e05-c6e7-dcf3f8f57cc3">
+<div class="sourceCode" id="cb34"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scipy.stats <span class="im">import</span> mannwhitneyu</span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="co"># nonparametric (don&#39;t need the data to be approx. normal) test </span></span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a><span class="co"># to test if two samples from same distribution</span></span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>hp <span class="op">=</span> df[df[<span class="st">&#39;hostname&#39;</span>]<span class="op">==</span><span class="st">&#39;hp.com&#39;</span>]</span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>google <span class="op">=</span> df[df[<span class="st">&#39;hostname&#39;</span>]<span class="op">==</span><span class="st">&#39;google.com&#39;</span>]</span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a>amazon <span class="op">=</span> df[df[<span class="st">&#39;hostname&#39;</span>]<span class="op">==</span><span class="st">&#39;amazon.com&#39;</span>]</span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a>paypal <span class="op">=</span> df[df[<span class="st">&#39;hostname&#39;</span>]<span class="op">==</span><span class="st">&#39;paypal.com&#39;</span>]</span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>tiktok <span class="op">=</span> df[df[<span class="st">&#39;hostname&#39;</span>]<span class="op">==</span><span class="st">&#39;tiktok.com&#39;</span>]</span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>facebook <span class="op">=</span> df[df[<span class="st">&#39;hostname&#39;</span>]<span class="op">==</span><span class="st">&#39;m.facebook.com&#39;</span>]</span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>apple <span class="op">=</span> df[df[<span class="st">&#39;hostname&#39;</span>]<span class="op">==</span><span class="st">&#39;apple.com&#39;</span>]</span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mannwhitneyu(google[<span class="st">&#39;insecureIndicator&#39;</span>], hp[<span class="st">&#39;insecureIndicator&#39;</span>]))</span>
+<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mannwhitneyu(amazon[<span class="st">&#39;insecureIndicator&#39;</span>], hp[<span class="st">&#39;insecureIndicator&#39;</span>]))</span>
+<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mannwhitneyu(paypal[<span class="st">&#39;insecureIndicator&#39;</span>], hp[<span class="st">&#39;insecureIndicator&#39;</span>]))</span>
+<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mannwhitneyu(tiktok[<span class="st">&#39;insecureIndicator&#39;</span>], hp[<span class="st">&#39;insecureIndicator&#39;</span>]))</span>
+<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mannwhitneyu(facebook[<span class="st">&#39;insecureIndicator&#39;</span>], hp[<span class="st">&#39;insecureIndicator&#39;</span>]))</span>
+<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mannwhitneyu(apple[<span class="st">&#39;insecureIndicator&#39;</span>], hp[<span class="st">&#39;insecureIndicator&#39;</span>]))</span></code></pre></div>
+<div class="output stream stdout">
+<pre><code>MannwhitneyuResult(statistic=1833.5, pvalue=9.648954352823023e-41)
+MannwhitneyuResult(statistic=609.0, pvalue=2.173928961903571e-17)
+MannwhitneyuResult(statistic=497.0, pvalue=5.7240944492632255e-15)
+MannwhitneyuResult(statistic=846.5, pvalue=6.515809428596183e-21)
+MannwhitneyuResult(statistic=602.0, pvalue=3.072132826582019e-17)
+MannwhitneyuResult(statistic=1547.0, pvalue=5.099188804687879e-37)
+</code></pre>
+</div>
+</div>
+<div class="cell markdown" id="XkpsKu5RRJzg">
+<p>These p values are incredibly small, it is safe to say that the null hypothesis is rejected for all of these sites. So there seems to be something happening on hp.com not happening for these other popular sites which is causing it to have insecure requests in its page loads.</p>
+</div>
+<div class="cell markdown" id="XImEB_mDR5JK">
+<p>Now let's run the same tests, but this time investigating apple's extended validation percentage:</p>
+</div>
+<div class="cell code" data-execution_count="352" data-colab="{&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="b2I3uG54R_-J" data-outputId="8d8feb18-d789-45f0-97f4-39ceeccbf1e3">
+<div class="sourceCode" id="cb36"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mannwhitneyu(hp[<span class="st">&#39;isExtValidTrueIndicator&#39;</span>], apple[<span class="st">&#39;isExtValidTrueIndicator&#39;</span>]))</span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mannwhitneyu(google[<span class="st">&#39;isExtValidTrueIndicator&#39;</span>], apple[<span class="st">&#39;isExtValidTrueIndicator&#39;</span>]))</span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mannwhitneyu(amazon[<span class="st">&#39;isExtValidTrueIndicator&#39;</span>], apple[<span class="st">&#39;isExtValidTrueIndicator&#39;</span>]))</span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mannwhitneyu(paypal[<span class="st">&#39;isExtValidTrueIndicator&#39;</span>], apple[<span class="st">&#39;isExtValidTrueIndicator&#39;</span>]))</span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mannwhitneyu(tiktok[<span class="st">&#39;isExtValidTrueIndicator&#39;</span>], apple[<span class="st">&#39;isExtValidTrueIndicator&#39;</span>]))</span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mannwhitneyu(facebook[<span class="st">&#39;isExtValidTrueIndicator&#39;</span>], apple[<span class="st">&#39;isExtValidTrueIndicator&#39;</span>]))</span></code></pre></div>
+<div class="output stream stdout">
+<pre><code>MannwhitneyuResult(statistic=41.0, pvalue=1.4650366105787485e-55)
+MannwhitneyuResult(statistic=590.5, pvalue=7.454328280018883e-102)
+MannwhitneyuResult(statistic=1855.0, pvalue=1.167625619267219e-50)
+MannwhitneyuResult(statistic=7695.5, pvalue=0.2302628778085496)
+MannwhitneyuResult(statistic=118.0, pvalue=1.342729647041428e-73)
+MannwhitneyuResult(statistic=86.0, pvalue=2.0999890815988783e-66)
+</code></pre>
+</div>
+</div>
+<div class="cell markdown" id="ApBnP11UShOi">
+<p>These p values are also incredibly low, apart from the paypal one, so the null hypothesis may be rejected in all cases besides the paypal test.</p>
+</div>
+<div class="cell markdown" id="aX_9alYJT4cU">
+<p>Let's look again at the extended validation percentages.</p>
+</div>
+<div class="cell code" data-execution_count="353" data-colab="{&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}" id="O6GeByVLS0oN" data-outputId="33da4ad2-90e1-4665-d6ef-04b39732574e">
+<div class="sourceCode" id="cb38"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(data[data[<span class="st">&#39;website&#39;</span>] <span class="op">==</span> <span class="st">&#39;apple.com&#39;</span>][<span class="st">&#39;extValid%&#39;</span>])</span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(data[data[<span class="st">&#39;website&#39;</span>] <span class="op">==</span> <span class="st">&#39;paypal.com&#39;</span>][<span class="st">&#39;extValid%&#39;</span>])</span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(data[data[<span class="st">&#39;website&#39;</span>] <span class="op">==</span> <span class="st">&#39;amazon.com&#39;</span>][<span class="st">&#39;extValid%&#39;</span>])</span></code></pre></div>
+<div class="output stream stdout">
+<pre><code>25    99.095023
+Name: extValid%, dtype: float64
+146    97.183099
+Name: extValid%, dtype: float64
+63    18.390805
+Name: extValid%, dtype: float64
+</code></pre>
+</div>
+</div>
+<div class="cell markdown" id="Qg2jlG60TAYz">
+<p>This makes sense, because apple and paypal are quite close in extended validation percent. Extended Validation Certificates are the highest form of certificate available, so it makes sense why apple and paypal would want to use them, as they display the highest level of trustworthiness to the user, which is important on sites where you enter payment details. So it is interesting that amazon's extended validation percentage is only 18%, considering the fact that they are an online marketplace.</p>
+</div>
+<div class="cell markdown" id="1KhfabDT4oob">
+<p>##Communication of insights attained</p>
+</div>
+<div class="cell markdown" id="fkXopbhCUcHZ">
+<p>The insights attained have been communicated where they were attained, but I will summarize here.</p>
+<ol>
+<li>Hp.com likely has some issue that causes it to have insecure page loads, as evidenced by the low p values in the Mann Whitney U test</li>
+<li>Apple.com has significantly higher rates of extended validation certificate use than some sites, and doesn't differ significantly from others. Interestingly, it is significantly better in this regard than amazon.com, which is interesting because amazon.com is a massive online marketplace, so one might expect them to heavily use EV Certs.</li>
+<li>Twitter is such an outlier (and an unexpected outlier at that) in the HSTS% category that I expect there to be a bug either in the firefox plugin or the getSecurityInfo API, so this should be investigatd.</li>
+</ol>
+<p>The goal of this project was to collect and analyze data to show that there is reason to continue development of our plugin, and eventaully release it to users. We have seen that there are useful insights to be gathered even from our quick web crawls, so there is good reason to continue with the project. Soon new functionality will be added to the getSecurityInfo API to enable us to collect more data about potential privacy leaks that occur before a webpage has loaded, and these can easily be implemented into our plugin.</p>
 </div>
 </body>
 </html>
