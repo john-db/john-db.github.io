@@ -213,14 +213,15 @@
 </head>
 <body>
 <div class="cell markdown" id="lbGs1jChwro_">
-<p>#Analysis of Data from Firefox Web Security Plugin Group: John Bridgers (Worked alone)</p>
+<p><strong><font size="+4">Analysis of Data from Firefox Web Security Plugin</font></strong></p>
+<p></p>Group: John Bridgers (Worked alone)</p>
 </div>
 <div class="cell markdown" id="-uVY_fZK5HkG">
 <p>The goal of this project is to collect and analyze data from a Firefox plugin relating to web security that I desgined with a group of students (Jiahua Liu, Uyen P. Nguyen) for a project in CMSC396H (Research seminar) (Since I am working on this project (CMSC320 final), I will only discuss my contributions, and this data analysis has been done by myself). The goal of the plugin is to use features from the <a href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/getSecurityInfo">Firefox getSecurityInfo API</a> to collect data on a page load by page load basis regarding security leaks that may take place <em>at the very beginning of a web connection</em>. These leaks may take place when the browser sends DNS requests, performs TLS handshakes, or looks up TLS certifiate information.</p>
 <p>All of the code for the plugin and the web scraper/crawler (which will be discussed in the next section) are on our github: <a href="https://github.com/john-db/cmsc396h_RG" class="uri">https://github.com/john-db/cmsc396h_RG</a>.</p>
 </div>
 <div class="cell markdown" id="mqTvqWcx4IF-">
-<p>##Data collection/curation + parsing (if necessary)</p>
+<p><strong><font size="+2">Data collection/curation + parsing (if necessary)</strong></font></p>
 </div>
 <div class="cell markdown" id="RHeGyr6v7trb">
 <p>The first step in any data analysis project is of course to gather the data. In this case, we will be creating our own dataset, and the first step is to create the Firefox plugin.</p>
@@ -366,7 +367,7 @@
 <p>There are many columns, so I will talk about the relevant ones when they are analyzed, but here's a summary of the important columns: the hostname column contains the hostname of a web page, the contains the number of requests associated with the page load, and the columns are a count of how many webrequests from that page had a certain property be true/false.</p>
 </div>
 <div class="cell markdown" id="e_RRei3D4X_1">
-<p>##Data management/representation</p>
+<p></p><strong><font size="+2">Data management/representation</strong></font></p>
 </div>
 <div class="cell markdown" id="iukw5aUpGnw-">
 <p>Here are the columns that we have to work with</p>
@@ -1146,7 +1147,7 @@ Name: hostname, Length: 404, dtype: Int64</code></pre>
 <p>The standout here is hp.com, which has a good sample size (41 page loads) and a very high insecure%. We will also keep this in mind when we do further data analysis. Another one which catches my eye is weibo with 89% over 19 page loads. 19 is probably far too few to draw any conclusions, but we should keep it in mind for when we continue this study and collect more data.</p>
 </div>
 <div class="cell markdown" id="Gsp3BumN4hKj">
-<p>##Exploratory data analysis</p>
+<p></p><strong><font size="+2">Exploratory data analysis</strong></font></p>
 </div>
 <div class="cell markdown" id="PFRLbPjSKMMJ">
 <p>Now we will do some data analysis, using the points of interest mentioned above as starting points/things to investigate:</p>
@@ -1278,7 +1279,7 @@ Name: hostname, Length: 404, dtype: Int64</code></pre>
 <p>Twitter and hp are pretty easy to spot on these plots (twitter is the hsts outlier, hp is the insecure% outlier), but otherwise the points seem to just be distributed over a vertical line in all 3 of these plots, so without needing to run a regression, I feel confident saying that there is no linear relationship between any of these variables.</p>
 </div>
 <div class="cell markdown" id="AmAQ8miS4kqf">
-<p>##Hypothesis testing</p>
+<p></p><strong><font size="+2">Hypothesis testing</strong></font></p>
 </div>
 <div class="cell markdown" id="7EXKcnd8PqMd">
 <p>Now let's test the hypotheses we came up with in the previous section</p>
@@ -1382,7 +1383,7 @@ Name: extValid%, dtype: float64
 <p>This makes sense, because apple and paypal are quite close in extended validation percent. Extended Validation Certificates are the highest form of certificate available, so it makes sense why apple and paypal would want to use them, as they display the highest level of trustworthiness to the user, which is important on sites where you enter payment details. So it is interesting that amazon's extended validation percentage is only 18%, considering the fact that they are an online marketplace.</p>
 </div>
 <div class="cell markdown" id="1KhfabDT4oob">
-<p>##Communication of insights attained</p>
+<p></p><strong><font size="+2">Communication of insights attained</strong></font></p>
 </div>
 <div class="cell markdown" id="fkXopbhCUcHZ">
 <p>The insights attained have been communicated where they were attained, but I will summarize here.</p>
